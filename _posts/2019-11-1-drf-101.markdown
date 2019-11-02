@@ -1,0 +1,97 @@
+---
+layout: page
+title:  "Django Rest Framework 101"
+permalink: /drf-101/
+categories: drf intro rest django python
+---
+
+## DRF 101
+
+
+### The Parts
+
+Django Rest Framework provides many features but it can be broken down roughly into 2 major components that you’ll use on any given day. **Views** and **Serializers**. Views handle HTTP requests. Serializers turn models into JSON, and JSON into models. Both components are more complex than that, but that isn’t really the point. Knowing what these two components are meant to do makes it easier to start breaking down how they work.
+
+One thing to keep in mind is that both Django and DRF are open source libraries. While it may seem daunting, digging into the source code can really help with your understanding of how all these systems come together. All of the info below stems from my personal curiosity to understand how the code I write is working -- and I do that by reading the code.
+
+If you use an editor like VS Code, you can use CMD/CTRL-Click on class imports to jump directly to where they are defined in their source code.
+
+Now, let’s start by talking about **Views**.
+
+
+### Views
+
+A View isn’t a DRF-specific concept. If you’re familiar with Django, you know it also has Views, but they are designed to handle HTTP requests that mostly deal with HTML and HTML Form Data. In DRF, APIView subclasses Django’s View.
+
+
+#### Django’s View class
+
+Django’s View class doesn’t do much. First, it contains the logic to turn the class into a function view, which is what Django wants internally for handling requests.
+
+The other important thing it does is check to see if the HTTP method used in the request is found as a method on the class, and if it does, it calls that method. This is why you are able to define methods called **get**, **post**, **put**, etc. They are directly looked up based on the HTTP verb in the request. You won’t find those methods actually defined anywhere in the Django source code.
+
+
+#### DRF’s APIView
+
+In vanilla Django, most class based views are designed to render HTML and handle HTML Forms, so the View class is pretty simple.
+
+DRF subclasses this view to add some additional features that are core to its own design goals.
+
+When working with HTML, usually your requirements are assumed to have one client in mind, a web browser. But when building APIs to be consumed by Single Page Apps, Mobile Apps, IoT devices, etc. those requirements need to be much more flexible. DRF is designed to make it easy to support many different use cases. It primarily does this by separating the handling of requests with the serialization of data, as we’ve seen with our major components, **Views** and **Serializers**. But it goes further by allowing customization in the way requests are handled and how it decides what kind of data to respond with. We call this content negotiation. If a client asks for JSON, DRF is able to respond with JSON. If the client wants XML, that’s fine too (with a plugin!). Even HTML is possible, which is how DRF is able to provide browsable APIs.
+
+APIView is also responsible for allowing the customization of permissions, request throttling, API versioning, and much more. It provides the plumbing for all the features by taking a request, running it through all of your feature customizations (or its sane defaults when you don’t override them) and responding with the appropriate kind of data.
+
+APIView is a foundational class, and while you can subclass it and override one of the HTTP verb methods, that usually isn’t what you want, because DRF itself provides several subclasses that make common tasks much easier.
+
+The first of those we’ll look at is **GenericAPIView.**
+
+
+#### GenericAPIView
+
+GenericAPIView subclasses APIView and is designed to add features that enable your APIs to easily handle Django ORM models by automatically looking up objects, filtering querysets, and paginate the responses.
+
+It’s called GenericAPIView because… it doesn’t actually do anything on its own. It does not define methods for get, post, put, etc. So if you just subclass GenericAPIView, you’d have to implement those methods yourself and utilize some of the methods it provides like **get_object** or **get_serializer_context**.
+
+The real utility of GenericAPIView comes from DRF’s **mixins**.
+
+
+#### Mixins
+
+DRF is designed to make certain, basic RESTful actions on your models very easy to implement. It doesn’t want you to have to write any code just to create an instance of your model, update it, get it back by looking up its pk. It wants these to be built-in operations.
+
+DRF’s mixins provide the logic necessary for the most basic implementation of each REST action: **c**reate, **r**ead, **u**pdate, and **d**elete… a.k.a. CRUD.
+
+There are 5 mixins: **CreateModelMixin**, **ListModelMixin**, **RetrieveModelMixin**, **UpdateModelMixin**, and **DestroyModelMixin**.
+
+If you take a look at the source code for these, they do just about exactly what you’d think they do. One thing that can be confusing or hard to follow at first is that the Mixins are only designed to be mixed into GenericAPIView subclasses, so they use methods defined in that class, for ex. **get_serializer**. 
+
+However, if you take a look at these mixins, you’ll see that they implement 5 major methods: **retrieve**, **list**, **update**, **partial_update**, and **destroy**.
+
+None of these methods are defined anywhere else, and aren’t used in or called from GenericAPIView. So if you mixin GenericAPIView and one of these methods, nothing will happen… this is perhaps one of the most confusing things about how DRF works, and why many people do not know which combination of classes or mixins to use for what they want to do.
+
+So, how do you actually use any of these mixins? Well, DRF implements 9 concrete GenericAPIView subclasses with various combinations of the mixins for common use cases, and on each class it implements the HTTP verb methods necessary to use them. For example, if you use ListCreateAPIView, it will subclass GenericAPIView and use the ListModelMixin and CreateModelMixin to get the logic implemented by the **create **and **list** methods from the mixins. The concrete class itself implements the **get** and **post** methods that APIView will call (remember, it subclasses GenericAPIView which in turn subclasses APIView). In its implementations of **get** and **post,** the concrete subclass just forwards the request, args, and kwargs to the mixin methods that do the actual work.
+
+If you look at the concrete classes that DRF provides, you’ll notice that none of them actually use all four mixins… weird, right? You can Create & Read, Read & Update, Retrieve & Update & Destroy… but no CRUD. Why?
+
+Because DRF offers a different construct for this called a **ViewSet**.
+
+
+#### ViewSets
+
+In practice, a viewset (lowercase) is a specially designed class-based view designed to offer all 4 CRUD operations by composing GenericAPIView with all 5 available mixins. There are 5 mixins and 4 CRUD operations because **Retrieve** and **List** both adhere to the **Read** action, which is signified by an HTTP GET request. The only difference is that **Retrieve** is designed to return a single model instance and **List** is designed to return a… list of model instances.
+
+In reality, it comes in 4 flavors. There is a ViewSetMixin mixin that provides some common logic for the other 3 classes. More importantly, it magically adds HTTP verb methods to the class that just call their CRUD action counterparts, so that you don’t need to write methods for get, post, put, etc. This is a bit of magic that is imperative to understanding how DRF works, because it does not do this for other GenericAPIViews.
+
+Next, there’s a ViewSet class that does mostly nothing, it just mixes the ViewSet logic with the APIView, which you’ll probably never use. Then there’s GenericViewSet which mixes the ViewSetMixin logic with GenericAPIView, which in practice is not extremely useful either.
+
+Finally, it provides a ModelViewSet that mixes GenericViewSet with all the available mixins, providing a full CRUD interface for your specified model.
+
+Understanding the magic behind how ViewSets work is half the battle with DRF.
+
+<!-- 
+I recommend reading **[[ViewSets… Huh?!]] **for more information!
+
+### Serializers
+
+Okay, so we’ve talked through the major features of Views in DRF (obviously leaving out a lot of details… this is 101 after all). Now, let’s talk about serializers. -->
+
