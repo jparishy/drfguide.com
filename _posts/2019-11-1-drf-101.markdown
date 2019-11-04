@@ -3,6 +3,7 @@ layout: page
 title:  "Django Rest Framework 101"
 permalink: /drf-101/
 categories: drf intro rest django python
+card-description: Get started by reading up on how DRF is structured and which parts of the framework do what.
 ---
 
 ## DRF 101
