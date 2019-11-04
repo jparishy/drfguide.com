@@ -31,6 +31,7 @@ github_username: jparishy
 theme: minima
 plugins:
   - jekyll-feed
+  - jekyll-sitemap
 
 google_analytics: UA-142500700-3
 
