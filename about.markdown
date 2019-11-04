@@ -1,6 +1,7 @@
 ---
 layout: page
-title: About
+title: Welcome to DRFGuide.com!
+header_link_title: About
 permalink: /about/
 ---
 
